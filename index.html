@@ -68,9 +68,18 @@
     .state-idle { background: #1e293b; color: #e2e8f0; }
     .state-ok { background: #14532d; color: #dcfce7; transition: background 0.4s ease; }
     .state-fail { background: #7f1d1d; color: #fecaca; transition: background 0.4s ease; }
+    #flashOverlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; z-index: 9999; opacity: 0;
+      transition: opacity 0.15s ease-out;
+    }
+    #flashOverlay.flash { transition: none; }
+    #flashOverlay.green { background: rgba(34,197,94,0.75); }
+    #flashOverlay.red { background: rgba(185,28,28,0.8); }
   </style>
 </head>
 <body class="state-idle">
+  <div id="flashOverlay" aria-hidden="true"></div>
   <div class="screen">
     <h1>📬 Barcode-Checker</h1>
     <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes – Vergleich ignoriert führende Nullen.</p>
@@ -171,6 +180,41 @@
         body.classList.add("state-" + s);
       }
 
+      var audioCtx = null;
+      function beep(freq, durationMs, type) {
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          var o = audioCtx.createOscillator();
+          var g = audioCtx.createGain();
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.frequency.value = freq;
+          o.type = type || "sine";
+          g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + durationMs / 1000);
+          o.start(audioCtx.currentTime);
+          o.stop(audioCtx.currentTime + durationMs / 1000);
+        } catch (e) {}
+      }
+      function beepScan() { beep(800, 80, "sine"); }
+      function beepOk() { beep(880, 100, "sine"); setTimeout(function () { beep(1100, 120, "sine"); }, 120); }
+      function beepFail() { beep(200, 250, "sawtooth"); }
+
+      var flashEl = document.getElementById("flashOverlay");
+      function flash(color) {
+        if (!flashEl) return;
+        flashEl.className = "flash " + color;
+        flashEl.style.opacity = "1";
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            flashEl.classList.remove("flash");
+            flashEl.style.transition = "opacity 0.25s ease-out";
+            flashEl.style.opacity = "0";
+          });
+        });
+      }
+
       function loadScript(url) {
         return new Promise(function (resolve, reject) {
           if (window.ZXing) { resolve(); return; }
@@ -259,6 +303,7 @@
         lastScanEl.innerHTML = "Letzter Scan (" + new Date().toLocaleTimeString("de-DE") + "): <strong>" + escapeHtml(rawCode) + "</strong>";
         if (rawCode !== normalized) lastScanEl.innerHTML += " <span style='color:#fbbf24'>→ " + escapeHtml(normalized) + "</span>";
 
+        beepScan();
         pairBuffer.push({ raw: rawCode, normalized: normalized });
         if (pairBuffer.length === 1) {
           pairBox.style.display = "block";
@@ -280,6 +325,13 @@
           resultLine.className = "result " + (match ? "ok" : "fail");
           resultLine.textContent = match ? "✅ IDENTISCH" : "❌ FEHLER – Zahlen passen nicht!";
           setBodyState(match ? "ok" : "fail");
+          if (match) {
+            flash("green");
+            beepOk();
+          } else {
+            flash("red");
+            beepFail();
+          }
           pairBuffer = [];
         }
       }
@@ -335,6 +387,12 @@
         }
         clearError();
         pairBuffer = [];
+        if (!audioCtx) {
+          try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === "suspended") audioCtx.resume();
+          } catch (e) {}
+        }
         videoWrap.style.display = "block";
         scanline.style.display = "block";
         var deviceId = selectedDeviceId || undefined;
