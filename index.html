@@ -96,7 +96,7 @@
   <div id="flashOverlay" aria-hidden="true"></div>
   <div class="screen">
     <h1>📬 Barcode-Checker</h1>
-    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes – Vergleich ignoriert führende Nullen. <strong>Nur der gelbe Rahmen wird ausgewertet.</strong></p>
+    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes (Code 128). Vergleich ignoriert führende Nullen. Barcode in den gelben Rahmen halten.</p>
 
     <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
@@ -178,10 +178,6 @@
       }
 
       var codeReader = null;
-      var stream = null;
-      var cropCanvas = null;
-      var decodingLoopId = null;
-      var decodingStopped = false;
       var pairBuffer = [];
       var lastRaw = null;
       var lastTime = 0;
@@ -299,18 +295,8 @@
       function listCameras() {
         if (!window.ZXing) return;
         var hints = new Map();
-        var formats = [
-          window.ZXing.BarcodeFormat.CODE_128,
-          window.ZXing.BarcodeFormat.CODE_39,
-          window.ZXing.BarcodeFormat.EAN_13,
-          window.ZXing.BarcodeFormat.EAN_8,
-          window.ZXing.BarcodeFormat.ITF,
-          window.ZXing.BarcodeFormat.UPC_A,
-          window.ZXing.BarcodeFormat.UPC_E,
-          window.ZXing.BarcodeFormat.QR_CODE
-        ];
-        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 180);
+        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [window.ZXing.BarcodeFormat.CODE_128]);
+        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 150);
         codeReader.listVideoInputDevices().then(function (devices) {
           cameras = devices;
           if (devices.length > 1) {
@@ -457,29 +443,9 @@
         videoWrap.style.display = "block";
         scanline.style.display = "block";
         var deviceId = selectedDeviceId || undefined;
-        function runDecodeLoop() {
-          if (decodingStopped) return;
-          var v = video;
-          if (v.readyState >= 2 && v.videoWidth > 0) {
-            var vw = v.videoWidth, vh = v.videoHeight;
-            var cropW = Math.round(vw * 0.7), cropH = Math.round(vh * 0.7);
-            if (!cropCanvas) cropCanvas = document.createElement("canvas");
-            cropCanvas.width = cropW;
-            cropCanvas.height = cropH;
-            var ctx = cropCanvas.getContext("2d");
-            ctx.drawImage(v, vw * 0.15, vh * 0.15, cropW, cropH, 0, 0, cropW, cropH);
-            try {
-              var result = codeReader.decode(cropCanvas);
-              if (result) onResult(result.getText());
-            } catch (e) {}
-          }
-          decodingLoopId = setTimeout(runDecodeLoop, 180);
-        }
-
         function doStart() {
           btnStart.style.display = "none";
           btnStop.style.display = "block";
-          decodingStopped = false;
           var scanZoneEl = document.getElementById("scanZone");
           if (scanZoneEl) scanZoneEl.style.display = "block";
           setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
@@ -488,12 +454,8 @@
               ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
               : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
           };
-          navigator.mediaDevices.getUserMedia(constraints).then(function (s) {
-            stream = s;
-            video.srcObject = s;
-            return video.play();
-          }).then(function () {
-            runDecodeLoop();
+          codeReader.decodeFromConstraints(constraints, video, function (result, err) {
+            if (result) onResult(result.getText());
           }).catch(function (e) {
             showError("Scanner: " + (e.message || e));
             stopScanning();
@@ -516,13 +478,6 @@
       }
 
       function stopScanning() {
-        decodingStopped = true;
-        if (decodingLoopId) { clearTimeout(decodingLoopId); decodingLoopId = null; }
-        if (stream) {
-          stream.getTracks().forEach(function (t) { t.stop(); });
-          stream = null;
-        }
-        video.srcObject = null;
         if (codeReader && typeof codeReader.reset === "function") codeReader.reset();
         scanline.style.display = "none";
         var sz = document.getElementById("scanZone");
