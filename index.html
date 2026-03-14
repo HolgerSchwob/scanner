@@ -30,6 +30,11 @@
       width: 100%; height: 100%; display: block; border-radius: 12px; object-fit: cover;
       -webkit-transform: scaleX(1); transform: scaleX(1);
     }
+    #scanZone {
+      position: absolute; left: 15%; top: 15%; width: 70%; height: 70%;
+      border: 3px solid rgba(255,220,0,0.9); border-radius: 10px; pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
+    }
     .scanline {
       position: absolute; left: 10%; right: 10%; height: 4px;
       background: rgba(255,220,0,0.9); box-shadow: 0 0 12px rgba(255,220,0,0.9);
@@ -91,7 +96,7 @@
   <div id="flashOverlay" aria-hidden="true"></div>
   <div class="screen">
     <h1>📬 Barcode-Checker</h1>
-    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes – Vergleich ignoriert führende Nullen. Funktioniert in Hoch- und Querformat.</p>
+    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes – Vergleich ignoriert führende Nullen. <strong>Nur der gelbe Rahmen wird ausgewertet.</strong></p>
 
     <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
@@ -102,6 +107,7 @@
 
     <div id="videoWrap" style="display:none;">
       <video id="video" playsinline muted autoplay></video>
+      <div id="scanZone" style="display:none;" aria-hidden="true"></div>
       <div class="scanline" id="scanline" style="display:none;"></div>
     </div>
 
@@ -173,6 +179,9 @@
 
       var codeReader = null;
       var stream = null;
+      var cropCanvas = null;
+      var decodingLoopId = null;
+      var decodingStopped = false;
       var pairBuffer = [];
       var lastRaw = null;
       var lastTime = 0;
@@ -448,17 +457,43 @@
         videoWrap.style.display = "block";
         scanline.style.display = "block";
         var deviceId = selectedDeviceId || undefined;
+        function runDecodeLoop() {
+          if (decodingStopped) return;
+          var v = video;
+          if (v.readyState >= 2 && v.videoWidth > 0) {
+            var vw = v.videoWidth, vh = v.videoHeight;
+            var cropW = Math.round(vw * 0.7), cropH = Math.round(vh * 0.7);
+            if (!cropCanvas) cropCanvas = document.createElement("canvas");
+            cropCanvas.width = cropW;
+            cropCanvas.height = cropH;
+            var ctx = cropCanvas.getContext("2d");
+            ctx.drawImage(v, vw * 0.15, vh * 0.15, cropW, cropH, 0, 0, cropW, cropH);
+            try {
+              var result = codeReader.decode(cropCanvas);
+              if (result) onResult(result.getText());
+            } catch (e) {}
+          }
+          decodingLoopId = setTimeout(runDecodeLoop, 180);
+        }
+
         function doStart() {
           btnStart.style.display = "none";
           btnStop.style.display = "block";
+          decodingStopped = false;
+          var scanZoneEl = document.getElementById("scanZone");
+          if (scanZoneEl) scanZoneEl.style.display = "block";
           setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
           var constraints = {
             video: deviceId
               ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
               : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
           };
-          codeReader.decodeFromConstraints(constraints, video, function (result, err) {
-            if (result) onResult(result.getText());
+          navigator.mediaDevices.getUserMedia(constraints).then(function (s) {
+            stream = s;
+            video.srcObject = s;
+            return video.play();
+          }).then(function () {
+            runDecodeLoop();
           }).catch(function (e) {
             showError("Scanner: " + (e.message || e));
             stopScanning();
@@ -481,8 +516,17 @@
       }
 
       function stopScanning() {
+        decodingStopped = true;
+        if (decodingLoopId) { clearTimeout(decodingLoopId); decodingLoopId = null; }
+        if (stream) {
+          stream.getTracks().forEach(function (t) { t.stop(); });
+          stream = null;
+        }
+        video.srcObject = null;
         if (codeReader && typeof codeReader.reset === "function") codeReader.reset();
         scanline.style.display = "none";
+        var sz = document.getElementById("scanZone");
+        if (sz) sz.style.display = "none";
         btnStart.style.display = "block";
         btnStop.style.display = "none";
         if (cycleStatusEl) cycleStatusEl.style.display = "none";
