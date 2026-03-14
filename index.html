@@ -24,10 +24,11 @@
     }
     #videoWrap {
       position: relative; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 12px;
+      aspect-ratio: 4/3; max-height: 40vh;
     }
     #video {
-      width: 100%; display: block; border-radius: 12px;
-      -webkit-transform: scaleX(1); transform: scaleX(1); /* front camera mirror optional */
+      width: 100%; height: 100%; display: block; border-radius: 12px; object-fit: cover;
+      -webkit-transform: scaleX(1); transform: scaleX(1);
     }
     .scanline {
       position: absolute; left: 10%; right: 10%; height: 4px;
@@ -90,7 +91,7 @@
   <div id="flashOverlay" aria-hidden="true"></div>
   <div class="screen">
     <h1>📬 Barcode-Checker</h1>
-    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes – Vergleich ignoriert führende Nullen.</p>
+    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes – Vergleich ignoriert führende Nullen. Funktioniert in Hoch- und Querformat.</p>
 
     <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
@@ -362,7 +363,19 @@
             beepFail();
           }
           pairBuffer = [];
+          setTimeout(startNextPair, 2600);
         }
+      }
+
+      function startNextPair() {
+        pairBuffer = [];
+        if (resultLine) resultLine.style.display = "none";
+        if (code1Raw) code1Raw.textContent = "—";
+        if (code1Norm) code1Norm.textContent = "—";
+        if (code2Raw) code2Raw.textContent = "wartet…";
+        if (code2Norm) code2Norm.textContent = "";
+        setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
+        setBodyState("idle");
       }
 
       function escapeHtml(s) {
@@ -462,11 +475,8 @@
       }
 
       function resetPair() {
-        pairBuffer = [];
-        pairBox.style.display = "none";
-        resultLine.style.display = "none";
-        setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
-        setBodyState("idle");
+        startNextPair();
+        if (pairBox) pairBox.style.display = "block";
       }
 
       btnStart.addEventListener("click", startScanning);
@@ -477,6 +487,7 @@
         listCameras();
         btnStart.textContent = "▶ Scannen starten";
         btnStart.disabled = false;
+        setTimeout(startScanning, 1200);
       });
       btnStart.disabled = true;
       btnStart.textContent = "Lade ZXing…";
