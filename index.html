@@ -284,8 +284,12 @@
 
       function pickDefaultCamera(devices) {
         if (!devices || !devices.length) return null;
-        var back = devices.filter(function (d) { return /back|rear|environment/i.test(d.label || ""); });
-        if (!back.length) return devices[0];
+        var back = devices.filter(function (d) {
+          var l = (d.label || "").toLowerCase();
+          if (/front|user|face|selfie/.test(l)) return false;
+          return /back|rear|environment/.test(l);
+        });
+        if (!back.length) return null;
         var wide = back.find(function (d) {
           var l = (d.label || "").toLowerCase();
           return !/ultra\s*wide|ultraweit|ultra-wide|weitwinkel/.test(l);
@@ -297,15 +301,19 @@
         if (!window.ZXing) return;
         var hints = new Map();
         hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [window.ZXing.BarcodeFormat.CODE_128]);
-        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
-        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 100);
+        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 140);
         codeReader.listVideoInputDevices().then(function (devices) {
           cameras = devices;
+          var defaultCam = pickDefaultCamera(devices);
+          selectedDeviceId = defaultCam ? defaultCam.deviceId : null;
           if (devices.length > 1) {
             cameraSelectWrap.style.display = "block";
             cameraSelect.innerHTML = "";
-            var defaultCam = pickDefaultCamera(devices);
-            selectedDeviceId = defaultCam ? defaultCam.deviceId : (devices[0] && devices[0].deviceId);
+            var opt0 = document.createElement("option");
+            opt0.value = "";
+            opt0.textContent = "Rückkamera (Standard)";
+            if (!selectedDeviceId) opt0.selected = true;
+            cameraSelect.appendChild(opt0);
             devices.forEach(function (d) {
               var opt = document.createElement("option");
               opt.value = d.deviceId;
@@ -313,9 +321,9 @@
               if (d.deviceId === selectedDeviceId) opt.selected = true;
               cameraSelect.appendChild(opt);
             });
-            cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value; };
-          } else if (devices.length === 1) {
-            selectedDeviceId = devices[0].deviceId;
+            cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value || null; };
+          } else if (devices.length === 1 && defaultCam) {
+            selectedDeviceId = defaultCam.deviceId;
           }
         }).catch(function (e) {
           showError("Kamera-Zugriff: " + (e.message || e));
@@ -406,11 +414,16 @@
             return codeReader.listVideoInputDevices();
           }).then(function (devices) {
             cameras = devices;
+            var defaultCam = pickDefaultCamera(devices);
+            selectedDeviceId = defaultCam ? defaultCam.deviceId : null;
             if (devices.length > 1) {
-              var defaultCam = pickDefaultCamera(devices);
-              selectedDeviceId = defaultCam ? defaultCam.deviceId : (devices[0] && devices[0].deviceId);
               cameraSelectWrap.style.display = "block";
               cameraSelect.innerHTML = "";
+              var opt0 = document.createElement("option");
+              opt0.value = "";
+              opt0.textContent = "Rückkamera (Standard)";
+              if (!selectedDeviceId) opt0.selected = true;
+              cameraSelect.appendChild(opt0);
               devices.forEach(function (d) {
                 var opt = document.createElement("option");
                 opt.value = d.deviceId;
@@ -418,9 +431,9 @@
                 if (d.deviceId === selectedDeviceId) opt.selected = true;
                 cameraSelect.appendChild(opt);
               });
-              cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value; };
-            } else if (devices.length === 1) {
-              selectedDeviceId = devices[0].deviceId;
+              cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value || null; };
+            } else if (devices.length === 1 && defaultCam) {
+              selectedDeviceId = defaultCam.deviceId;
             }
             resolve();
           }).catch(function (e) {
@@ -444,17 +457,17 @@
         }
         videoWrap.style.display = "block";
         scanline.style.display = "block";
-        var deviceId = selectedDeviceId || undefined;
         function doStart() {
           btnStart.style.display = "none";
           btnStop.style.display = "block";
           var scanZoneEl = document.getElementById("scanZone");
           if (scanZoneEl) scanZoneEl.style.display = "block";
           setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
+          var useBackByDefault = !selectedDeviceId || selectedDeviceId === "";
           var constraints = {
-            video: deviceId
-              ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-              : { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+            video: useBackByDefault
+              ? { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+              : { deviceId: { exact: selectedDeviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
           };
           codeReader.decodeFromConstraints(constraints, video, function (result, err) {
             if (result) onResult(result.getText());
@@ -463,13 +476,10 @@
             stopScanning();
           });
         }
-        if (selectedDeviceId) {
+        if (selectedDeviceId && selectedDeviceId !== "") {
           doStart();
         } else {
-          ensureCameraReady().then(function () {
-            deviceId = selectedDeviceId || undefined;
-            doStart();
-          }).catch(function (e) {
+          ensureCameraReady().then(doStart).catch(function (e) {
             showError("Kamera: " + (e.message || e) + " Bitte Zugriff in den Browser-Einstellungen erlauben.");
             btnStart.textContent = "▶ Scannen starten";
             btnStart.style.display = "block";
