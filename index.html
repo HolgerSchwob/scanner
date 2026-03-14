@@ -297,7 +297,8 @@
         if (!window.ZXing) return;
         var hints = new Map();
         hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [window.ZXing.BarcodeFormat.CODE_128]);
-        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 150);
+        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 100);
         codeReader.listVideoInputDevices().then(function (devices) {
           cameras = devices;
           if (devices.length > 1) {
