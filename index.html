@@ -113,7 +113,6 @@
     <div id="lastScan" class="last-scan" style="display:none;"></div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js"></script>
   <script>
     (function () {
       // Führende Nullen entfernen – Vergleich nur auf die restlichen Ziffern
@@ -152,6 +151,12 @@
       var cameras = [];
       var selectedDeviceId = null;
 
+      var ZXING_CDNS = [
+        "https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js",
+        "https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js"
+      ];
+
       function showError(msg) {
         errorBanner.textContent = "⚠️ " + msg;
         errorBanner.style.display = "block";
@@ -166,17 +171,42 @@
         body.classList.add("state-" + s);
       }
 
+      function loadScript(url) {
+        return new Promise(function (resolve, reject) {
+          if (window.ZXing) { resolve(); return; }
+          var s = document.createElement("script");
+          s.src = url;
+          s.crossOrigin = "anonymous";
+          s.onload = function () {
+            s.setAttribute("data-loaded", "1");
+            var t = Date.now();
+            function check() {
+              if (window.ZXing) { resolve(); return; }
+              if (Date.now() - t < 3000) setTimeout(check, 100);
+              else reject(new Error("ZXing nicht gefunden"));
+            }
+            check();
+          };
+          s.onerror = function () { reject(new Error("Netzwerkfehler: " + url)); };
+          document.head.appendChild(s);
+        });
+      }
+
       function initZxing() {
         if (window.ZXing) return Promise.resolve();
-        return new Promise(function (resolve) {
-          var s = document.querySelector('script[src*="zxing"]');
-          if (s && s.getAttribute("data-loaded")) { resolve(); return; }
-          if (window.ZXing) { resolve(); return; }
-          setTimeout(function () {
-            if (window.ZXing) resolve();
-            else showError("ZXing konnte nicht geladen werden. Internet prüfen.");
-          }, 500);
-        });
+        var i = 0;
+        function tryNext() {
+          if (i >= ZXING_CDNS.length) {
+            showError("ZXing konnte nicht geladen werden. Internet prüfen (WLAN/Daten).");
+            return Promise.reject();
+          }
+          btnStart.textContent = "Lade ZXing… (" + (i + 1) + "/" + ZXING_CDNS.length + ")";
+          return loadScript(ZXING_CDNS[i]).catch(function () {
+            i++;
+            return tryNext();
+          });
+        }
+        return tryNext();
       }
 
       function listCameras() {
