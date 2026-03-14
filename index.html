@@ -451,8 +451,8 @@
           setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
           var constraints = {
             video: deviceId
-              ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-              : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+              ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+              : { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
           };
           codeReader.decodeFromConstraints(constraints, video, function (result, err) {
             if (result) onResult(result.getText());
