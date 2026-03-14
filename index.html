@@ -96,7 +96,7 @@
   <div id="flashOverlay" aria-hidden="true"></div>
   <div class="screen">
     <h1>📬 Barcode-Checker</h1>
-    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes (Code 128). Vergleich ignoriert führende Nullen. Barcode in den gelben Rahmen halten.</p>
+    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes (Code 128). Vergleich ignoriert führende Nullen. Barcode in den gelben Rahmen halten. <strong>Vertikaler Code?</strong> Handy um 90° drehen, damit die Balken im Bild horizontal liegen.</p>
 
     <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
@@ -301,7 +301,8 @@
         if (!window.ZXing) return;
         var hints = new Map();
         hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [window.ZXing.BarcodeFormat.CODE_128]);
-        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 140);
+        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 200);
         codeReader.listVideoInputDevices().then(function (devices) {
           cameras = devices;
           var defaultCam = pickDefaultCamera(devices);
