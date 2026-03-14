@@ -144,6 +144,7 @@
       // Führende Nullen entfernen – Vergleich nur auf die restlichen Ziffern
       function normalizeCode(code) {
         if (!code || typeof code !== "string") return "";
+        code = String(code).trim();
         return code.replace(/^0+/, "") || "0";
       }
 
