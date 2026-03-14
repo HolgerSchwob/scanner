@@ -290,8 +290,46 @@
         return div.innerHTML;
       }
 
+      function ensureCameraReady() {
+        return new Promise(function (resolve, reject) {
+          if (selectedDeviceId) { resolve(); return; }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            reject(new Error("Kamera-API nicht unterstützt (HTTPS nötig)."));
+            return;
+          }
+          btnStart.style.display = "block";
+          btnStop.style.display = "none";
+          btnStart.textContent = "Kamera-Berechtigung…";
+          navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
+            stream.getTracks().forEach(function (t) { t.stop(); });
+            return codeReader.listVideoInputDevices();
+          }).then(function (devices) {
+            cameras = devices;
+            if (devices.length > 1) {
+              var back = devices.find(function (d) { return /back|rear|environment/i.test(d.label); });
+              selectedDeviceId = back ? back.deviceId : (devices[0] && devices[0].deviceId);
+              cameraSelectWrap.style.display = "block";
+              cameraSelect.innerHTML = "";
+              devices.forEach(function (d) {
+                var opt = document.createElement("option");
+                opt.value = d.deviceId;
+                opt.textContent = d.label || d.deviceId;
+                if (d.deviceId === selectedDeviceId) opt.selected = true;
+                cameraSelect.appendChild(opt);
+              });
+              cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value; };
+            } else if (devices.length === 1) {
+              selectedDeviceId = devices[0].deviceId;
+            }
+            resolve();
+          }).catch(function (e) {
+            reject(e);
+          });
+        });
+      }
+
       function startScanning() {
-        if (!codeReader || !selectedDeviceId) {
+        if (!codeReader) {
           showError("Kamera nicht bereit. Bitte Seite neu laden.");
           return;
         }
@@ -299,14 +337,31 @@
         pairBuffer = [];
         videoWrap.style.display = "block";
         scanline.style.display = "block";
-        btnStart.style.display = "none";
-        btnStop.style.display = "block";
-        codeReader.decodeFromVideoDevice(selectedDeviceId, video, function (result, err) {
-          if (result) onResult(result.getText());
-        }).catch(function (e) {
-          showError("Scanner: " + (e.message || e));
-          stopScanning();
-        });
+        var deviceId = selectedDeviceId || undefined;
+        function doStart() {
+          btnStart.style.display = "none";
+          btnStop.style.display = "block";
+          codeReader.decodeFromVideoDevice(deviceId, video, function (result, err) {
+            if (result) onResult(result.getText());
+          }).catch(function (e) {
+            showError("Scanner: " + (e.message || e));
+            stopScanning();
+          });
+        }
+        if (selectedDeviceId) {
+          doStart();
+        } else {
+          ensureCameraReady().then(function () {
+            deviceId = selectedDeviceId || undefined;
+            doStart();
+          }).catch(function (e) {
+            showError("Kamera: " + (e.message || e) + " Bitte Zugriff in den Browser-Einstellungen erlauben.");
+            btnStart.textContent = "▶ Scannen starten";
+            btnStart.style.display = "block";
+            btnStop.style.display = "none";
+            videoWrap.style.display = "none";
+          });
+        }
       }
 
       function stopScanning() {
