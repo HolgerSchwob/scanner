@@ -279,7 +279,6 @@
       function listCameras() {
         if (!window.ZXing) return;
         var hints = new Map();
-        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
         var formats = [
           window.ZXing.BarcodeFormat.CODE_128,
           window.ZXing.BarcodeFormat.CODE_39,
@@ -291,7 +290,7 @@
           window.ZXing.BarcodeFormat.QR_CODE
         ];
         hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        codeReader = new window.ZXing.BrowserMultiFormatReader(hints);
+        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 180);
         codeReader.listVideoInputDevices().then(function (devices) {
           cameras = devices;
           if (devices.length > 1) {
@@ -442,7 +441,12 @@
           btnStart.style.display = "none";
           btnStop.style.display = "block";
           setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
-          codeReader.decodeFromVideoDevice(deviceId, video, function (result, err) {
+          var constraints = {
+            video: deviceId
+              ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+              : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+          };
+          codeReader.decodeFromConstraints(constraints, video, function (result, err) {
             if (result) onResult(result.getText());
           }).catch(function (e) {
             showError("Scanner: " + (e.message || e));
