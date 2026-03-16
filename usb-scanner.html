@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>USB-Barcode-Checker</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    body.ok     { background: #065f46; } /* grün */
+    body.fail   { background: #7f1d1d; } /* rot */
+    body.idle   { background: #0f172a; } /* dunkelblau */
+    .wrap {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+    }
+    .info {
+      font-size: 0.9rem;
+      opacity: 0.85;
+      margin-bottom: 20px;
+      max-width: 600px;
+    }
+    .code-display {
+      font-size: clamp(3rem, 10vw, 5rem);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      word-break: break-all;
+    }
+    .norm-display {
+      font-size: 1.2rem;
+      color: #fbbf24;
+      margin-bottom: 20px;
+    }
+    .status {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+    }
+    .status.ok {
+      color: #bbf7d0;
+    }
+    .status.fail {
+      color: #fecaca;
+    }
+    .history {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      max-width: 600px;
+      width: 100%;
+      text-align: left;
+    }
+    .history h2 {
+      font-size: 0.95rem;
+      margin: 0 0 4px;
+    }
+    .history-line {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(248,250,252,0.05);
+      padding: 2px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .history-line span:first-child {
+      margin-right: 12px;
+    }
+    /* Verstecktes Eingabefeld für den Scanner */
+    #scanInput {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body class="idle">
+  <div class="wrap">
+    <h1>USB-Barcode-Checker</h1>
+    <div class="info">
+      USB-Scanner wie eine Tastatur anschließen. Fokus bleibt automatisch hier.<br>
+      Jeder gescannte Code wird groß angezeigt. Zwei identische Codes nacheinander = <strong>GRÜN + 1 Beep</strong>,<br>
+      abweichend = <strong>ROT + 3 Beeps</strong>. Führende Nullen werden beim Vergleich ignoriert.
+    </div>
+
+    <div class="code-display" id="codeRaw">–</div>
+    <div class="norm-display" id="codeNorm">–</div>
+    <div class="status" id="statusText">Warte auf Scan…</div>
+
+    <div class="history" id="history">
+      <h2>Letzte Scans</h2>
+      <div id="historyLines"></div>
+    </div>
+  </div>
+
+  <input id="scanInput" autocomplete="off" />
+
+  <script>
+    (function () {
+      const scanInput = document.getElementById("scanInput");
+      const codeRawEl = document.getElementById("codeRaw");
+      const codeNormEl = document.getElementById("codeNorm");
+      const statusTextEl = document.getElementById("statusText");
+      const historyLinesEl = document.getElementById("historyLines");
+      const body = document.body;
+
+      function focusInput() {
+        try { scanInput.focus(); } catch (e) {}
+      }
+
+      window.addEventListener("click", focusInput);
+      window.addEventListener("keydown", focusInput);
+      window.addEventListener("load", focusInput);
+
+      function normalizeCode(code) {
+        if (!code || typeof code !== "string") return "";
+        code = code.trim();
+        const stripped = code.replace(/^0+/, "");
+        return stripped === "" ? "0" : stripped;
+      }
+
+      function beepPattern(ok) {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AudioCtx();
+          function tone(freq, start, duration) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            osc.type = "sine";
+            const t0 = ctx.currentTime + start;
+            gain.gain.setValueAtTime(0.18, t0);
+            gain.gain.exponentialRampToValueAtTime(0.01, t0 + duration);
+            osc.start(t0);
+            osc.stop(t0 + duration + 0.02);
+          }
+          if (ok) {
+            // 1x Beep OK (zweistufig)
+            tone(880, 0, 0.10);
+            tone(1100, 0.14, 0.12);
+          } else {
+            // 3x Beep Fehler
+            tone(400, 0.00, 0.12);
+            tone(400, 0.18, 0.12);
+            tone(400, 0.36, 0.12);
+          }
+        } catch (e) {
+          // Audio kann auf manchen Systemen geblockt sein – dann eben still
+        }
+      }
+
+      let lastNorm = null;
+      let lastRaw = null;
+
+      function setStateIdle() {
+        body.classList.remove("ok", "fail");
+        body.classList.add("idle");
+        statusTextEl.textContent = "Warte auf Scan…";
+      }
+
+      function handleScannedCode(raw) {
+        const norm = normalizeCode(raw);
+        const now = new Date().toLocaleTimeString("de-DE");
+
+        codeRawEl.textContent = raw || "–";
+        codeNormEl.textContent = "→ " + norm;
+
+        // Verlauf
+        const line = document.createElement("div");
+        line.className = "history-line";
+        line.innerHTML = "<span>" + now + "</span><span>" + raw + " → " + norm + "</span>";
+        historyLinesEl.insertBefore(line, historyLinesEl.firstChild);
+        while (historyLinesEl.children.length > 20) {
+          historyLinesEl.removeChild(historyLinesEl.lastChild);
+        }
+
+        if (lastNorm !== null) {
+          const match = norm === lastNorm;
+          body.classList.remove("idle", "ok", "fail");
+          if (match) {
+            body.classList.add("ok");
+            statusTextEl.textContent = "✅ IDENTISCH – zwei gleiche Codes in Folge";
+          } else {
+            body.classList.add("fail");
+            statusTextEl.textContent = "❌ UNTERSCHIED – Codes weichen voneinander ab";
+          }
+          beepPattern(match);
+        } else {
+          // erster Scan
+          setStateIdle();
+        }
+
+        lastRaw = raw;
+        lastNorm = norm;
+      }
+
+      // Eingabe-Logik: Scanner sendet Zeichen + Enter
+      scanInput.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          const value = scanInput.value;
+          scanInput.value = "";
+          if (value && value.trim() !== "") {
+            handleScannedCode(value.trim());
+          }
+          ev.preventDefault();
+          focusInput();
+        }
+      });
+
+      // Sicherheitshalber immer wieder fokussieren
+      setInterval(focusInput, 2000);
+
+      setStateIdle();
+    })();
+  </script>
+</body>
+</html>
+
