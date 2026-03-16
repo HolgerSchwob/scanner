@@ -107,11 +107,17 @@
         return () => { cancelled = true; };
       }, []);
 
-      // Enumerate cameras
+      // Enumerate cameras – inkl. einmaligem getUserMedia, um Berechtigung zu triggern
       useEffect(() => {
         if (!zxingReady) return;
         (async () => {
           try {
+            // Erst einmalig getUserMedia anstoßen, damit Browser Geräte freigibt
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              const tmpStream = await navigator.mediaDevices.getUserMedia({ video: true });
+              tmpStream.getTracks().forEach(t => t.stop());
+            }
+
             const ZXing = window.ZXing;
             const hints = new Map();
             hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
@@ -130,9 +136,13 @@
             readerRef.current = codeReader;
             const devices = await codeReader.listVideoInputDevices();
             setCameras(devices);
+            if (devices.length === 0) {
+              setError("Keine Kamera gefunden. Bitte Kamera anschließen oder Berechtigungen prüfen.");
+              return;
+            }
             // prefer back camera
             const back = devices.find(d => /back|rear|environment/i.test(d.label));
-            setSelectedCamera(back ? back.deviceId : devices[0]?.deviceId);
+            setSelectedCamera((back ? back.deviceId : devices[0].deviceId) || null);
           } catch (e) {
             setError("Kamera-Zugriff fehlgeschlagen: " + e.message);
           }
@@ -171,13 +181,18 @@
       }, []);
 
       const startScanning = useCallback(async () => {
-        if (!readerRef.current || !selectedCamera) return;
+        if (!readerRef.current) {
+          setError("Scanner nicht bereit (ZXing). Bitte Seite neu laden.");
+          return;
+        }
+        // Wenn keine Kamera explizit gewählt ist, Standardkamera verwenden (null)
+        const deviceIdToUse = selectedCamera || null;
         setError(null);
         setScanning(true);
         pairBufferRef.current = [];
         try {
           await readerRef.current.decodeFromVideoDevice(
-            selectedCamera,
+            deviceIdToUse,
             videoRef.current,
             (result, err) => {
               if (result) handleResult(result.getText());
@@ -256,7 +271,7 @@
           {/* Controls */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             {!scanning ? (
-              <button onClick={startScanning} disabled={!zxingReady || !selectedCamera}
+              <button onClick={startScanning} disabled={!zxingReady}
                 style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#0ea5e9", color: "white", fontSize: "1rem", fontWeight: 700, cursor: "pointer" }}>
                 {zxingReady ? "▶ Scannen starten" : "Lade ZXing…"}
               </button>
