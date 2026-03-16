@@ -1,536 +1,307 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <title>Barcode-Checker – Zwei Codes vergleichen</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Barcode-Checker – React-Version</title>
   <style>
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      min-height: -webkit-fill-available;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 12px;
-      padding-bottom: env(safe-area-inset-bottom, 12px);
-      -webkit-tap-highlight-color: transparent;
+      background: #0f172a;
+      color: #e5e7eb;
     }
-    .screen { min-height: 80vh; display: flex; flex-direction: column; }
-    h1 { font-size: 1.25rem; margin: 0 0 12px; text-align: center; font-weight: 700; }
-    .error-banner {
-      background: #7f1d1d; color: #fecaca; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 0.9rem;
-    }
-    #videoWrap {
-      position: relative; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 12px;
-      aspect-ratio: 4/3; max-height: 40vh;
-    }
-    #video {
-      width: 100%; height: 100%; display: block; border-radius: 12px; object-fit: cover;
-      -webkit-transform: scaleX(1); transform: scaleX(1);
-    }
-    #scanZone {
-      position: absolute; left: 15%; top: 15%; width: 70%; height: 70%;
-      border: 3px solid rgba(255,220,0,0.9); border-radius: 10px; pointer-events: none;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
-    }
-    .scanline {
-      position: absolute; left: 10%; right: 10%; height: 4px;
-      background: rgba(255,220,0,0.9); box-shadow: 0 0 12px rgba(255,220,0,0.9);
-      top: 40%; animation: scan 2s ease-in-out infinite;
-    }
-    @keyframes scan { 0%, 100% { top: 25%; } 50% { top: 75%; } }
-    .controls { display: flex; gap: 8px; margin-bottom: 12px; }
-    .controls button {
-      flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
-      -webkit-appearance: none; appearance: none;
-    }
-    #btnStart { background: #0ea5e9; color: #fff; }
-    #btnStop { background: #64748b; color: #fff; }
-    #btnReset { padding: 14px 20px; background: #334155; color: #fff; }
-    .pair-box {
-      background: rgba(0,0,0,0.25); border-radius: 12px; padding: 14px; margin-bottom: 12px;
-    }
-    .pair-box .label { font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px; }
-    .pair-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-    .code-cell {
-      background: rgba(255,255,255,0.12); border-radius: 8px; padding: 10px; text-align: center;
-    }
-    .code-cell .raw { font-weight: 700; font-size: 0.95rem; word-break: break-all; }
-    .code-cell .norm { font-size: 0.75rem; color: #fbbf24; margin-top: 4px; }
-    .result {
-      text-align: center; font-size: 1.5rem; font-weight: 900; padding: 12px 0;
-      border-radius: 8px; margin-top: 8px;
-    }
-    .result.ok { background: rgba(34,197,94,0.4); color: #86efac; }
-    .result.fail { background: rgba(185,28,28,0.5); color: #fca5a5; }
-    .last-scan { font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 8px; }
-    .last-scan strong { color: #fff; }
-    select {
-      width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; font-size: 0.9rem;
-      background: #1e293b; color: #fff; border: 1px solid #334155;
-    }
-    .cycle-status {
-      text-align: center; font-size: 1.1rem; font-weight: 800; padding: 12px; margin-bottom: 10px; border-radius: 10px;
-      letter-spacing: 0.02em;
-    }
-    .cycle-status.step1 { background: rgba(59,130,246,0.4); color: #93c5fd; }
-    .cycle-status.step2 { background: rgba(234,179,8,0.35); color: #fde047; }
-    .cycle-status.ok { background: rgba(34,197,94,0.5); color: #86efac; }
-    .cycle-status.fail { background: rgba(185,28,28,0.5); color: #fca5a5; }
-    .state-idle { background: #1e293b; color: #e2e8f0; }
-    .state-ok { background: #14532d; color: #dcfce7; transition: background 0.4s ease; }
-    .state-fail { background: #7f1d1d; color: #fecaca; transition: background 0.4s ease; }
-    #flashOverlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      pointer-events: none; z-index: 9999; opacity: 0;
-      transition: opacity 0.15s ease-out;
-    }
-    #flashOverlay.flash { transition: none; }
-    #flashOverlay.green { background: rgba(34,197,94,0.75); }
-    #flashOverlay.red { background: rgba(185,28,28,0.8); }
   </style>
+  <!-- React & Babel aus CDN, damit es ohne Build läuft -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="state-idle">
-  <div id="flashOverlay" aria-hidden="true"></div>
-  <div class="screen">
-    <h1>📬 Barcode-Checker</h1>
-    <p style="text-align:center; margin:0 0 12px; font-size:0.9rem; opacity:0.9;">Scanne nacheinander zwei Barcodes (z. B. Code 128, EAN, UPC). Vergleich ignoriert führende Nullen. Barcode in den gelben Rahmen halten. <strong>Vertikaler Code?</strong> Handy um 90° drehen. Schlechter Druck? Ruhig halten, gute Beleuchtung.</p>
+<body>
+  <div id="root"></div>
 
-    <div id="errorBanner" class="error-banner" style="display:none;"></div>
+  <!-- Deine BarcodeChecker-Komponente als JSX, von Babel im Browser kompiliert -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
 
-    <div id="cameraSelectWrap" style="display:none;">
-      <label for="cameraSelect">Kamera</label>
-      <select id="cameraSelect"></select>
-    </div>
+    const ZXING_URL = "https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js";
 
-    <div id="videoWrap" style="display:none%;">
-      <video id="video" playsinline muted autoplay></video>
-      <div id="scanZone" style="display:none;" aria-hidden="true"></div>
-      <div class="scanline" id="scanline" style="display:none;"></div>
-    </div>
+    function normalizeCode(code) {
+      return code ? code.replace(/^0+/, "") : "";
+    }
 
-    <div class="controls">
-      <button type="button" id="btnStart">▶ Scannen starten</button>
-      <button type="button" id="btnStop" style="display:none;">⏹ Stopp</button>
-      <button type="button" id="btnReset">🔄 Neu</button>
-    </div>
+    function codesMatch(a, b) {
+      return normalizeCode(a) === normalizeCode(b);
+    }
 
-    <div id="cycleStatus" class="cycle-status" style="display:none;"></div>
+    function BarcodeChecker() {
+      const [zxingReady, setZxingReady] = useState(false);
+      const [scanning, setScanning] = useState(false);
+      const [error, setError] = useState(null);
+      const [scans, setScans] = useState([]); // last N scans with timestamp
+      const [lastScan, setLastScan] = useState(null);
+      const [pairStatus, setPairStatus] = useState(null); // {code1, code2, match}
+      const [duplicateWarning, setDuplicateWarning] = useState(false);
+      const [cameras, setCameras] = useState([]);
+      const [selectedCamera, setSelectedCamera] = useState(null);
+      const videoRef = useRef(null);
+      const readerRef = useRef(null);
+      const lastRawRef = useRef(null);
+      const lastScanTimeRef = useRef(0);
+      const pairBufferRef = useRef([]);
+      const scanHistoryRef = useRef([]); // for duplicate detection
 
-    <div id="pairBox" class="pair-box" style="display:none;">
-      <div class="label">PAAR-PRÜFUNG</div>
-      <div class="pair-row">
-        <div class="code-cell">
-          <div class="label">CODE 1</div>
-          <div class="raw" id="code1Raw">—</div>
-          <div class="norm" id="code1Norm">—</div>
-        </div>
-        <div class="code-cell">
-          <div class="label">CODE 2</div>
-          <div class="raw" id="code2Raw">wartet…</div>
-          <div class="norm" id="code2Norm"></div>
-        </div>
-      </div>
-      <div id="resultLine" class="result" style="display:none;"></div>
-    </div>
+      // Load ZXing
+      useEffect(() => {
+        if (window.ZXing) { setZxingReady(true); return; }
+        const script = document.createElement("script");
+        script.src = ZXING_URL;
+        script.onload = () => setZxingReady(true);
+        script.onerror = () => setError("ZXing konnte nicht geladen werden. Internetverbindung prüfen.");
+        document.head.appendChild(script);
+      }, []);
 
-    <div id="lastScan" class="last-scan" style="display:none;"></div>
-  </div>
-
-  <script>
-    (function () {
-      // Führende Nullen entfernen – Vergleich nur auf die restlichen Ziffern
-      function normalizeCode(code) {
-        if (!code || typeof code !== "string") return "";
-        code = String(code).trim();
-        return code.replace(/^0+/, "") || "0";
-      }
-
-      function codesMatch(a, b) {
-        return normalizeCode(a) === normalizeCode(b);
-      }
-
-      var video = document.getElementById("video");
-      var videoWrap = document.getElementById("videoWrap");
-      var scanline = document.getElementById("scanline");
-      var errorBanner = document.getElementById("errorBanner");
-      var cameraSelectWrap = document.getElementById("cameraSelectWrap");
-      var cameraSelect = document.getElementById("cameraSelect");
-      var btnStart = document.getElementById("btnStart");
-      var btnStop = document.getElementById("btnStop");
-      var btnReset = document.getElementById("btnReset");
-      var pairBox = document.getElementById("pairBox");
-      var code1Raw = document.getElementById("code1Raw");
-      var code1Norm = document.getElementById("code1Norm");
-      var code2Raw = document.getElementById("code2Raw");
-      var code2Norm = document.getElementById("code2Norm");
-      var resultLine = document.getElementById("resultLine");
-      var lastScanEl = document.getElementById("lastScan");
-      var cycleStatusEl = document.getElementById("cycleStatus");
-      var body = document.body;
-
-      function setCycleStatus(step, text) {
-        if (!cycleStatusEl) return;
-        cycleStatusEl.className = "cycle-status " + step;
-        cycleStatusEl.textContent = text;
-        cycleStatusEl.style.display = "block";
-      }
-
-      var codeReader = null;
-      var pairBuffer = [];
-      var lastRaw = null;
-      var lastTime = 0;
-      var cameras = [];
-      var selectedDeviceId = null;
-
-      var ZXING_CDNS = [
-        "https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js",
-        "https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js"
-      ];
-
-      function showError(msg) {
-        errorBanner.textContent = "⚠️ " + msg;
-        errorBanner.style.display = "block";
-      }
-
-      function clearError() {
-        errorBanner.style.display = "none";
-      }
-
-      function setBodyState(s) {
-        body.classList.remove("state-idle", "state-ok", "state-fail");
-        body.classList.add("state-" + s);
-      }
-
-      var audioCtx = null;
-      function beep(freq, durationMs, type) {
-        try {
-          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          if (audioCtx.state === "suspended") audioCtx.resume();
-          var o = audioCtx.createOscillator();
-          var g = audioCtx.createGain();
-          o.connect(g);
-          g.connect(audioCtx.destination);
-          o.frequency.value = freq;
-          o.type = type || "sine";
-          g.gain.setValueAtTime(0.15, audioCtx.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + durationMs / 1000);
-          o.start(audioCtx.currentTime);
-          o.stop(audioCtx.currentTime + durationMs / 1000);
-        } catch (e) {}
-      }
-      function beepScan() { beep(800, 80, "sine"); }
-      function beepOk() { beep(880, 100, "sine"); setTimeout(function () { beep(1100, 120, "sine"); }, 120); }
-      function beepFail() {
-        beep(400, 120, "sine");
-        setTimeout(function () { beep(400, 120, "sine"); }, 180);
-        setTimeout(function () { beep(400, 120, "sine"); }, 360);
-      }
-
-      var flashEl = document.getElementById("flashOverlay");
-      function flash(color) {
-        if (!flashEl) return;
-        flashEl.className = "flash " + color;
-        flashEl.style.opacity = "1";
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            flashEl.classList.remove("flash");
-            flashEl.style.transition = "opacity 0.25s ease-out";
-            flashEl.style.opacity = "0";
-          });
-        });
-      }
-
-      function loadScript(url) {
-        return new Promise(function (resolve, reject) {
-          if (window.ZXing) { resolve(); return; }
-          var s = document.createElement("script");
-          s.src = url;
-          s.crossOrigin = "anonymous";
-          s.onload = function () {
-            s.setAttribute("data-loaded", "1");
-            var t = Date.now();
-            function check() {
-              if (window.ZXing) { resolve(); return; }
-              if (Date.now() - t < 3000) setTimeout(check, 100);
-              else reject(new Error("ZXing nicht gefunden"));
-            }
-            check();
-          };
-          s.onerror = function () { reject(new Error("Netzwerkfehler: " + url)); };
-          document.head.appendChild(s);
-        });
-      }
-
-      function initZxing() {
-        if (window.ZXing) return Promise.resolve();
-        var i = 0;
-        function tryNext() {
-          if (i >= ZXING_CDNS.length) {
-            showError("ZXing konnte nicht geladen werden. Internet prüfen (WLAN/Daten).");
-            return Promise.reject();
-          }
-          btnStart.textContent = "Lade ZXing… (" + (i + 1) + "/" + ZXING_CDNS.length + ")";
-          return loadScript(ZXING_CDNS[i]).catch(function () {
-            i++;
-            return tryNext();
-          });
-        }
-        return tryNext();
-      }
-
-      function pickDefaultCamera(devices) {
-        if (!devices || !devices.length) return null;
-        var back = devices.filter(function (d) {
-          var l = (d.label || "").toLowerCase();
-          if (/front|user|face|selfie/.test(l)) return false;
-          return /back|rear|environment/.test(l);
-        });
-        if (!back.length) return null;
-        var wide = back.find(function (d) {
-          var l = (d.label || "").toLowerCase();
-          return !/ultra\s*wide|ultraweit|ultra-wide|weitwinkel/.test(l);
-        });
-        return wide || back[0];
-      }
-
-      function listCameras() {
-        if (!window.ZXing) return;
-        var hints = new Map();
-        var formats = [
-          window.ZXing.BarcodeFormat.CODE_128,
-          window.ZXing.BarcodeFormat.CODE_39,
-          window.ZXing.BarcodeFormat.EAN_13,
-          window.ZXing.BarcodeFormat.EAN_8,
-          window.ZXing.BarcodeFormat.ITF,
-          window.ZXing.BarcodeFormat.UPC_A,
-          window.ZXing.BarcodeFormat.UPC_E,
-          window.ZXing.BarcodeFormat.QR_CODE
-        ];
-        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        if (window.ZXing.DecodeHintType.TRY_HARDER !== undefined) {
-          hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
-        }
-        codeReader = new window.ZXing.BrowserMultiFormatReader(hints, 220);
-        codeReader.listVideoInputDevices().then(function (devices) {
-          cameras = devices;
-          var defaultCam = pickDefaultCamera(devices);
-          selectedDeviceId = defaultCam ? defaultCam.deviceId : null;
-          if (devices.length > 1) {
-            cameraSelectWrap.style.display = "block";
-            cameraSelect.innerHTML = "";
-            var opt0 = document.createElement("option");
-            opt0.value = "";
-            opt0.textContent = "Rückkamera (Standard)";
-            if (!selectedDeviceId) opt0.selected = true;
-            cameraSelect.appendChild(opt0);
-            devices.forEach(function (d) {
-              var opt = document.createElement("option");
-              opt.value = d.deviceId;
-              opt.textContent = d.label || d.deviceId;
-              if (d.deviceId === selectedDeviceId) opt.selected = true;
-              cameraSelect.appendChild(opt);
-            });
-            cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value || null; };
-          } else if (devices.length === 1 && defaultCam) {
-            selectedDeviceId = defaultCam.deviceId;
-          }
-        }).catch(function (e) {
-          showError("Kamera-Zugriff: " + (e.message || e));
-        });
-      }
-
-      function onResult(rawCode) {
-        var now = Date.now();
-        if (rawCode === lastRaw && now - lastTime < 1200) return;
-        lastRaw = rawCode;
-        lastTime = now;
-
-        var normalized = normalizeCode(rawCode);
-        lastScanEl.style.display = "block";
-        lastScanEl.innerHTML = "Letzter Scan (" + new Date().toLocaleTimeString("de-DE") + "): <strong>" + escapeHtml(rawCode) + "</strong>";
-        if (rawCode !== normalized) lastScanEl.innerHTML += " <span style='color:#fbbf24'>→ " + escapeHtml(normalized) + "</span>";
-
-        pairBuffer.push({ raw: rawCode, normalized: normalized });
-        if (pairBuffer.length === 1) {
-          beepScan();
-          setCycleStatus("step1", "1. ERSTER CODE — erfasst ✓");
-          pairBox.style.display = "block";
-          code1Raw.textContent = pairBuffer[0].raw;
-          code1Norm.textContent = "→ " + pairBuffer[0].normalized;
-          code2Raw.textContent = "wartet…";
-          code2Norm.textContent = "";
-          resultLine.style.display = "none";
-          setBodyState("idle");
-          setTimeout(function () {
-            if (pairBuffer.length === 1) setCycleStatus("step2", "2. ZWEITER CODE — Scanne jetzt den zweiten Barcode");
-          }, 600);
-        } else if (pairBuffer.length >= 2) {
-          beepScan();
-          var c1 = pairBuffer[pairBuffer.length - 2];
-          var c2 = pairBuffer[pairBuffer.length - 1];
-          code1Raw.textContent = c1.raw;
-          code1Norm.textContent = "→ " + c1.normalized;
-          code2Raw.textContent = c2.raw;
-          code2Norm.textContent = "→ " + c2.normalized;
-          var match = codesMatch(c1.raw, c2.raw);
-          resultLine.style.display = "block";
-          resultLine.className = "result " + (match ? "ok" : "fail");
-          resultLine.textContent = match ? "✅ IDENTISCH" : "❌ FEHLER – Zahlen passen nicht!";
-          setBodyState(match ? "ok" : "fail");
-          if (match) {
-            setCycleStatus("ok", "✅ OK — Identisch (bis auf führende Nullen)");
-            flash("green");
-            beepOk();
-          } else {
-            setCycleStatus("fail", "❌ FALSCH — Zahlen passen nicht!");
-            flash("red");
-            beepFail();
-          }
-          pairBuffer = [];
-          setTimeout(startNextPair, 2600);
-        }
-      }
-
-      function startNextPair() {
-        pairBuffer = [];
-        if (resultLine) resultLine.style.display = "none";
-        if (code1Raw) code1Raw.textContent = "—";
-        if (code1Norm) code1Norm.textContent = "—";
-        if (code2Raw) code2Raw.textContent = "wartet…";
-        if (code2Norm) code2Norm.textContent = "";
-        setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
-        setBodyState("idle");
-      }
-
-      function escapeHtml(s) {
-        var div = document.createElement("div");
-        div.textContent = s;
-        return div.innerHTML;
-      }
-
-      function ensureCameraReady() {
-        return new Promise(function (resolve, reject) {
-          if (selectedDeviceId) { resolve(); return; }
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            reject(new Error("Kamera-API nicht unterstützt (HTTPS nötig)."));
-            return;
-          }
-          btnStart.style.display = "block";
-          btnStop.style.display = "none";
-          btnStart.textContent = "Kamera-Berechtigung…";
-          navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
-            stream.getTracks().forEach(function (t) { t.stop(); });
-            return codeReader.listVideoInputDevices();
-          }).then(function (devices) {
-            cameras = devices;
-            var defaultCam = pickDefaultCamera(devices);
-            selectedDeviceId = defaultCam ? defaultCam.deviceId : null;
-            if (devices.length > 1) {
-              cameraSelectWrap.style.display = "block";
-              cameraSelect.innerHTML = "";
-              var opt0 = document.createElement("option");
-              opt0.value = "";
-              opt0.textContent = "Rückkamera (Standard)";
-              if (!selectedDeviceId) opt0.selected = true;
-              cameraSelect.appendChild(opt0);
-              devices.forEach(function (d) {
-                var opt = document.createElement("option");
-                opt.value = d.deviceId;
-                opt.textContent = d.label || d.deviceId;
-                if (d.deviceId === selectedDeviceId) opt.selected = true;
-                cameraSelect.appendChild(opt);
-              });
-              cameraSelect.onchange = function () { selectedDeviceId = cameraSelect.value || null; };
-            } else if (devices.length === 1 && defaultCam) {
-              selectedDeviceId = defaultCam.deviceId;
-            }
-            resolve();
-          }).catch(function (e) {
-            reject(e);
-          });
-        });
-      }
-
-      function startScanning() {
-        if (!codeReader) {
-          showError("Kamera nicht bereit. Bitte Seite neu laden.");
-          return;
-        }
-        clearError();
-        pairBuffer = [];
-        if (!audioCtx) {
+      // Enumerate cameras
+      useEffect(() => {
+        if (!zxingReady) return;
+        (async () => {
           try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === "suspended") audioCtx.resume();
-          } catch (e) {}
+            const ZXing = window.ZXing;
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            const allFormats = [
+              ZXing.BarcodeFormat.CODE_128,
+              ZXing.BarcodeFormat.CODE_39,
+              ZXing.BarcodeFormat.EAN_13,
+              ZXing.BarcodeFormat.EAN_8,
+              ZXing.BarcodeFormat.ITF,
+              ZXing.BarcodeFormat.UPC_A,
+              ZXing.BarcodeFormat.UPC_E,
+              ZXing.BarcodeFormat.QR_CODE,
+            ];
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, allFormats);
+            const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+            readerRef.current = codeReader;
+            const devices = await codeReader.listVideoInputDevices();
+            setCameras(devices);
+            // prefer back camera
+            const back = devices.find(d => /back|rear|environment/i.test(d.label));
+            setSelectedCamera(back ? back.deviceId : devices[0]?.deviceId);
+          } catch (e) {
+            setError("Kamera-Zugriff fehlgeschlagen: " + e.message);
+          }
+        })();
+      }, [zxingReady]);
+
+      const handleResult = useCallback((rawCode) => {
+        const now = Date.now();
+        if (rawCode === lastRawRef.current && now - lastScanTimeRef.current < 1500) return;
+        lastRawRef.current = rawCode;
+        lastScanTimeRef.current = now;
+
+        const normalized = normalizeCode(rawCode);
+        const timestamp = new Date().toLocaleTimeString("de-DE");
+
+        setLastScan({ raw: rawCode, normalized, timestamp });
+        setScans(prev => [{ raw: rawCode, normalized, timestamp }, ...prev].slice(0, 30));
+
+        // Pair logic: collect 2 codes, then compare
+        pairBufferRef.current = [...pairBufferRef.current, { raw: rawCode, normalized }];
+        if (pairBufferRef.current.length === 1) {
+          setPairStatus({ code1: pairBufferRef.current[0], code2: null, match: null });
+        } else if (pairBufferRef.current.length >= 2) {
+          const [c1, c2] = pairBufferRef.current.slice(-2);
+          const match = codesMatch(c1.raw, c2.raw);
+
+          // Duplicate detection: same normalized code as last scan
+          const hist = scanHistoryRef.current;
+          const isDuplicate = hist.length > 0 && hist[hist.length - 1] === normalized;
+          scanHistoryRef.current = [...hist, normalized].slice(-50);
+
+          setPairStatus({ code1: c1, code2: c2, match });
+          setDuplicateWarning(isDuplicate);
+          pairBufferRef.current = [];
         }
-        videoWrap.style.display = "block";
-        scanline.style.display = "block";
-        function doStart() {
-          btnStart.style.display = "none";
-          btnStop.style.display = "block";
-          var scanZoneEl = document.getElementById("scanZone");
-          if (scanZoneEl) scanZoneEl.style.display = "block";
-          setCycleStatus("step1", "1. ERSTER CODE — Scanne jetzt den ersten Barcode");
-          var useBackByDefault = !selectedDeviceId || selectedDeviceId === "";
-          var constraints = {
-            video: useBackByDefault
-              ? { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-              : { deviceId: { exact: selectedDeviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-          };
-          codeReader.decodeFromConstraints(constraints, video, function (result, err) {
-            if (result) onResult(result.getText());
-          }).catch(function (e) {
-            showError("Scanner: " + (e.message || e));
-            stopScanning();
-          });
+      }, []);
+
+      const startScanning = useCallback(async () => {
+        if (!readerRef.current || !selectedCamera) return;
+        setError(null);
+        setScanning(true);
+        pairBufferRef.current = [];
+        try {
+          await readerRef.current.decodeFromVideoDevice(
+            selectedCamera,
+            videoRef.current,
+            (result, err) => {
+              if (result) handleResult(result.getText());
+            }
+          );
+        } catch (e) {
+          setError("Scanner-Fehler: " + e.message);
+          setScanning(false);
         }
-        if (selectedDeviceId && selectedDeviceId !== "") {
-          doStart();
-        } else {
-          ensureCameraReady().then(doStart).catch(function (e) {
-            showError("Kamera: " + (e.message || e) + " Bitte Zugriff in den Browser-Einstellungen erlauben.");
-            btnStart.textContent = "▶ Scannen starten";
-            btnStart.style.display = "block";
-            btnStop.style.display = "none";
-            videoWrap.style.display = "none";
-          });
-        }
-      }
+      }, [selectedCamera, handleResult]);
 
-      function stopScanning() {
-        if (codeReader && typeof codeReader.reset === "function") codeReader.reset();
-        scanline.style.display = "none";
-        var sz = document.getElementById("scanZone");
-        if (sz) sz.style.display = "none";
-        btnStart.style.display = "block";
-        btnStop.style.display = "none";
-        if (cycleStatusEl) cycleStatusEl.style.display = "none";
-        setBodyState("idle");
-      }
+      const stopScanning = useCallback(() => {
+        readerRef.current?.reset();
+        setScanning(false);
+        setPairStatus(null);
+        pairBufferRef.current = [];
+      }, []);
 
-      function resetPair() {
-        startNextPair();
-        if (pairBox) pairBox.style.display = "block";
-      }
+      const resetPair = () => {
+        pairBufferRef.current = [];
+        setPairStatus(null);
+        setDuplicateWarning(false);
+      };
 
-      btnStart.addEventListener("click", startScanning);
-      btnStop.addEventListener("click", stopScanning);
-      btnReset.addEventListener("click", resetPair);
+      const bgColor = pairStatus?.match === true ? "#1a7a4a" :
+        pairStatus?.match === false ? "#b91c1c" : "#1e293b";
 
-      initZxing().then(function () {
-        listCameras();
-        btnStart.textContent = "▶ Scannen starten";
-        btnStart.disabled = false;
-        setTimeout(startScanning, 1200);
-      });
-      btnStart.disabled = true;
-      btnStart.textContent = "Lade ZXing…";
-    })();
+      return (
+        <div style={{
+          minHeight: "100vh", background: bgColor, color: "white",
+          fontFamily: "'Segoe UI', sans-serif", padding: "12px",
+          transition: "background 0.4s ease"
+        }}>
+          <h1 style={{ textAlign: "center", fontSize: "1.2rem", marginBottom: 8, fontWeight: 700 }}>
+            📬 Mailing Barcode-Checker (React)
+          </h1>
+
+          {error && (
+            <div style={{ background: "#7f1d1d", borderRadius: 8, padding: 10, marginBottom: 8, fontSize: "0.85rem" }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* Camera select */}
+          {cameras.length > 1 && (
+            <select
+              value={selectedCamera || ""}
+              onChange={e => setSelectedCamera(e.target.value)}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 6, fontSize: "0.85rem" }}
+              disabled={scanning}
+            >
+              {cameras.map(c => <option key={c.deviceId} value={c.deviceId}>{c.label || c.deviceId}</option>)}
+            </select>
+          )}
+
+          {/* Video */}
+          <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
+            <video ref={videoRef} style={{ width: "100%", display: "block", borderRadius: 10 }} playsInline muted />
+            {scanning && (
+              <div style={{
+                position: "absolute", top: "50%", left: "10%", right: "10%",
+                height: 3, background: "rgba(255,220,0,0.8)",
+                boxShadow: "0 0 8px rgba(255,220,0,0.9)",
+                animation: "scanline 2s ease-in-out infinite",
+                transform: "translateY(-50%)"
+              }} />
+            )}
+          </div>
+
+          <style>{`
+            @keyframes scanline {
+              0%,100% { top: 30%; } 50% { top: 70%; }
+            }
+          `}</style>
+
+          {/* Controls */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {!scanning ? (
+              <button onClick={startScanning} disabled={!zxingReady || !selectedCamera}
+                style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#0ea5e9", color: "white", fontSize: "1rem", fontWeight: 700, cursor: "pointer" }}>
+                {zxingReady ? "▶ Scannen starten" : "Lade ZXing…"}
+              </button>
+            ) : (
+              <button onClick={stopScanning}
+                style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#64748b", color: "white", fontSize: "1rem", fontWeight: 700, cursor: "pointer" }}>
+                ⏹ Stopp
+              </button>
+            )}
+            <button onClick={resetPair}
+              style={{ padding: "12px 16px", borderRadius: 8, border: "none", background: "#334155", color: "white", fontSize: "1rem", cursor: "pointer" }}>
+              🔄
+            </button>
+          </div>
+
+          {/* Pair status */}
+          {pairStatus && (
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: 12, marginBottom: 10 }}>
+              <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 6 }}>PAAR-PRÜFUNG</div>
+
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <div style={{ flex: 1, background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: 8, textAlign: "center" }}>
+                  <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>CODE 1</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", wordBreak: "break-all" }}>
+                    {pairStatus.code1?.raw || "—"}
+                  </div>
+                  <div style={{ fontSize: "0.7rem", color: "#fbbf24" }}>→ {pairStatus.code1?.normalized || "—"}</div>
+                </div>
+                <div style={{ flex: 1, background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: 8, textAlign: "center" }}>
+                  <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>CODE 2</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", wordBreak: "break-all" }}>
+                    {pairStatus.code2?.raw || "wartet…"}
+                  </div>
+                  <div style={{ fontSize: "0.7rem", color: "#fbbf24" }}>{pairStatus.code2 ? `→ ${pairStatus.code2.normalized}` : ""}</div>
+                </div>
+              </div>
+
+              {pairStatus.match !== null && (
+                <div style={{
+                  textAlign: "center", fontSize: "1.5rem", fontWeight: 900, padding: "8px 0",
+                  color: pairStatus.match ? "#4ade80" : "#f87171"
+                }}>
+                  {pairStatus.match ? "✅ IDENTISCH" : "❌ UNTERSCHIEDLICH!"}
+                </div>
+              )}
+
+              {duplicateWarning && (
+                <div style={{ background: "#92400e", borderRadius: 8, padding: 8, marginTop: 6, textAlign: "center", fontWeight: 700 }}>
+                  ⚠️ DOPPELDRUCK-VERDACHT! Gleicher Code wie vorhin!
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Last scan */}
+          {lastScan && (
+            <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: 10, marginBottom: 10, fontSize: "0.85rem" }}>
+              <span style={{ color: "#94a3b8" }}>Letzter Scan ({lastScan.timestamp}): </span>
+              <strong>{lastScan.raw}</strong>
+              {lastScan.raw !== lastScan.normalized && (
+                <span style={{ color: "#fbbf24" }}> → {lastScan.normalized}</span>
+              )}
+            </div>
+          )}
+
+          {/* Scan log */}
+          {scans.length > 0 && (
+            <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 10 }}>
+              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: 6 }}>SCAN-PROTOKOLL</div>
+              {scans.slice(0, 8).map((s, i) => (
+                <div key={i} style={{ fontSize: "0.75rem", padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#e2e8f0" }}>{s.raw}</span>
+                  <span style={{ color: "#64748b" }}>{s.timestamp}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!scanning && !zxingReady && (
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: "0.85rem", marginTop: 16 }}>
+              Lade Barcode-Bibliothek…
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<BarcodeChecker />);
   </script>
 </body>
 </html>
